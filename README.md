@@ -93,7 +93,15 @@ vibesafe scan -r
 vibesafe scan --report 
 ```
 
-**Generate AI Report (Requires API Key):**
+*Using a local llm host for report (the llm host must support OpenAI API)
+```bash
+ # example with ollama at local host with default ollama port
+ vibesafe scan --url http://127.0.0.1:11434 --model gemma3:27b-it-q8_0
+```
+
+if --url flag is not specified the report will be done by OpenAI (you will need an OpenAI API Key, see below)
+
+**Generate AI Report from OpenAI (Requires API Key):**
 
 To generate fix suggestions in the Markdown report, you need an OpenAI API key.
 

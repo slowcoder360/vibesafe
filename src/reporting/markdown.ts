@@ -53,7 +53,7 @@ function getSeverityInfo(severity: FindingSeverity | SecretFinding['severity'] |
  * @param reportData The aggregated findings.
  * @returns A Markdown formatted string.
  */
-export async function generateMarkdownReport(reportData: ReportData): Promise<string> {
+export async function generateMarkdownReport(reportData: ReportData, url: string, model: string  = 'gpt-4.1-nano'): Promise<string> {
     let markdown = `# VibeSafe Security Scan Report ✨🛡️\n\n`;
     markdown += `Generated: ${new Date().toISOString()}\n\n`;
 
@@ -198,20 +198,19 @@ export async function generateMarkdownReport(reportData: ReportData): Promise<st
         }
     }
 
-    // --- AI Suggestions --- 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (apiKey && apiKey !== 'YOUR_API_KEY_PLACEHOLDER') {
-        const spinner = ora('Generating AI suggestions (using OpenAI GPT-4o-mini)... ').start();
-        try {
-            const aiSuggestions = await generateAISuggestions(reportData, apiKey);
-            spinner.succeed('AI suggestions generated.');
-            markdown += aiSuggestions; // Append the suggestions section
-        } catch (error: any) {
-            spinner.fail('AI suggestion generation failed.');
-            markdown += `\n## AI Suggestions\n\n*Error generating suggestions: ${error.message}*\n`; // Append error message
-        }
-    } else {
-        markdown += `\n*AI suggestions skipped. Set the OPENAI_API_KEY environment variable to enable.*\n`;
+    // --- AI Suggestions ---
+    let apiKey = process.env.OPENAI_API_KEY;
+    if (! apiKey){ // ollama dont need an API key but this field can't be none
+        apiKey = 'YOUR_API_KEY_PLACEHOLDER';
+    }
+    const spinner = ora(`Generating AI suggestions (using API from ${url}/v1 with model: ${model})... `).start();
+    try {
+        const aiSuggestions = await generateAISuggestions(reportData, {baseURL: url + '/v1', apiKey: apiKey}, model);
+        spinner.succeed('AI suggestions generated.');
+        markdown += aiSuggestions; // Append the suggestions section
+    } catch (error: any) {
+        spinner.fail('AI suggestion generation failed.');
+        markdown += `\n## AI Suggestions\n\n*Error generating suggestions: ${error.message}*\n`; // Append error message
     }
 
     return markdown;

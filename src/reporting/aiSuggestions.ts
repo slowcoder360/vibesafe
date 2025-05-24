@@ -51,11 +51,12 @@ const MAX_FINDINGS_PER_TYPE = 10;
 /**
  * Generates AI-powered suggestions for fixing findings.
  * @param reportData The aggregated findings.
- * @param apiKey OpenAI API key.
+ * @param openaiConf OpenAI API key and url.
+ * @param model model name.
  * @returns A promise resolving to a Markdown string with suggestions.
  */
-export async function generateAISuggestions(reportData: ReportData, apiKey: string): Promise<string> {
-    const openai = new OpenAI({ apiKey });
+export async function generateAISuggestions(reportData: ReportData, openaiConf: {baseURL:string, apiKey: string}, model: string): Promise<string> {
+    const openai = new OpenAI(openaiConf);
 
     // Prepare a simplified list of findings for the prompt
     const simplifiedFindings: SimplifiedFinding[] = [
@@ -92,7 +93,7 @@ export async function generateAISuggestions(reportData: ReportData, apiKey: stri
 
     try {
         const completion = await openai.chat.completions.create({
-            model: "gpt-4.1-nano",
+            model: model,
             messages: [
                 { role: "system", content: "You are a helpful security assistant providing fix suggestions for code vulnerabilities." },
                 { role: "user", content: prompt }
