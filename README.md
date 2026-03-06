@@ -111,9 +111,9 @@ To generate fix suggestions in the Markdown report, you need an OpenAI API key.
     OPENAI_API_KEY=sk-YourActualOpenAIKeyHere
     ```
 3.  Run the scan with the report flag:
-    ```bash
+```bash
 vibesafe scan -r ai-report.md
-    ```
+```
 
 **Show Only High/Critical Issues:**
 
