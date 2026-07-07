@@ -17,5 +17,8 @@ describe('dependencies scanner', () => {
     );
 
     expect(vulnerable.length).toBeGreaterThan(0);
+    for (const finding of vulnerable) {
+      expect(finding.maxSeverity).not.toBe('None');
+    }
   });
 });
