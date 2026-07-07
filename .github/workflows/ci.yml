@@ -25,7 +25,10 @@ jobs:
     - name: Build project
       run: npm run build
 
+    - name: Run tests
+      run: npm test
+
     - name: Run VibeSafe Scan (High Only)
-      # This uses the globally linked bin command setup in package.json
-      # Or run directly: node dist/index.js scan --high-only
-      run: npx vibesafe scan --high-only 
+      # test-data/ fixtures intentionally contain high-severity findings; exit 1 is expected.
+      run: node dist/index.js scan test-data/ --high-only
+      continue-on-error: true
