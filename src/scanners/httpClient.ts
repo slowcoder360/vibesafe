@@ -30,13 +30,17 @@ export function scanForHttpClientIssues(filePath: string, content: string, hasBa
     const findings: HttpClientFinding[] = [];
     try {
         const ast = parse(content, { loc: true, range: true, comment: false }); // loc: true gives line/column numbers
+        const parentMap = new Map<TSESTree.Node, TSESTree.Node>();
 
         // Simple visitor pattern implementation
-        function visit(node: TSESTree.Node | null) {
+        function visit(node: TSESTree.Node | null, parent: TSESTree.Node | null = null) {
             if (!node) return;
+            if (parent) {
+                parentMap.set(node, parent);
+            }
 
             if (node.type === TSESTree.AST_NODE_TYPES.CallExpression) {
-                checkForHttpClientCall(node, filePath, findings);
+                checkForHttpClientCall(node, filePath, findings, parentMap);
             }
 
             // Recursively visit children
@@ -46,9 +50,9 @@ export function scanForHttpClientIssues(filePath: string, content: string, hasBa
                     const child = (node as any)[key];
                     if (typeof child === 'object' && child !== null) {
                         if (Array.isArray(child)) {
-                            child.forEach(visit);
+                            child.forEach((item) => visit(item, node));
                         } else {
-                            visit(child);
+                            visit(child, node);
                         }
                     }
                 }
@@ -76,10 +80,39 @@ const GOT_REQUEST_METHODS = new Set(['get', 'post', 'put', 'patch', 'head', 'del
 const SUPERAGENT_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete', 'del', 'head', 'options']);
 
 /**
+ * Returns true when a superagent request call is part of a chain that includes .timeout().
+ */
+function superagentChainHasTimeout(
+    node: TSESTree.CallExpression,
+    parentMap: Map<TSESTree.Node, TSESTree.Node>,
+): boolean {
+    let current: TSESTree.Node | undefined = node;
+    while (current) {
+        const parent = parentMap.get(current);
+        if (!parent) break;
+        if (
+            parent.type === TSESTree.AST_NODE_TYPES.CallExpression &&
+            parent.callee.type === TSESTree.AST_NODE_TYPES.MemberExpression &&
+            parent.callee.property.type === TSESTree.AST_NODE_TYPES.Identifier &&
+            parent.callee.property.name === 'timeout'
+        ) {
+            return true;
+        }
+        current = parent;
+    }
+    return false;
+}
+
+/**
  * Checks a CallExpression node to see if it's a known HTTP client call
  * and if it might be missing timeout configurations.
  */
-function checkForHttpClientCall(node: TSESTree.CallExpression, filePath: string, findings: HttpClientFinding[]) {
+function checkForHttpClientCall(
+    node: TSESTree.CallExpression,
+    filePath: string,
+    findings: HttpClientFinding[],
+    parentMap: Map<TSESTree.Node, TSESTree.Node>,
+) {
     const callee = node.callee;
     let library: HttpClientFinding['library'] = 'unknown';
     let callDetail = '';
@@ -159,33 +192,24 @@ function checkForHttpClientCall(node: TSESTree.CallExpression, filePath: string,
     }
     // --- Check for superagent --- 
     else if (callee.type === TSESTree.AST_NODE_TYPES.Identifier && callee.name === 'superagent') {
-        // Handling direct call like superagent('GET', '/path') - less common
         library = 'superagent';
         callDetail = 'superagent(...)';
-        // Superagent timeout typically set via .timeout() method chain.
-        // Statically detecting the absence of this chain is complex.
-        // We will flag the initial call as potentially missing configuration.
-        missingTimeout = true; 
+        missingTimeout = !superagentChainHasTimeout(node, parentMap);
     } else if (callee.type === TSESTree.AST_NODE_TYPES.MemberExpression && 
                callee.object.type === TSESTree.AST_NODE_TYPES.Identifier && 
                callee.object.name === 'superagent' &&
                callee.property.type === TSESTree.AST_NODE_TYPES.Identifier &&
                SUPERAGENT_METHODS.has(callee.property.name)) {
-         // Handling superagent.get(...), superagent.post(...)
          library = 'superagent';
          callDetail = `superagent.${callee.property.name}`;
-         // Flagging based on initial method call, as timeout is usually chained.
-         missingTimeout = true; 
+         missingTimeout = !superagentChainHasTimeout(node, parentMap);
     } else if (callee.type === TSESTree.AST_NODE_TYPES.MemberExpression &&
-               callee.object.type === TSESTree.AST_NODE_TYPES.CallExpression && // Check if object is result of a call e.g. request.get(...)
+               callee.object.type === TSESTree.AST_NODE_TYPES.CallExpression &&
                callee.object.callee.type === TSESTree.AST_NODE_TYPES.Identifier &&
                callee.object.callee.name === 'superagent') {
-         // Handling cases like superagent('GET', url).send(...)
-         // Difficult to track timeout across the chain, flag initial detection point.
-         // This detection is basic and might need refinement.
          library = 'superagent'; 
          callDetail = `superagent(...).${callee.property.type === TSESTree.AST_NODE_TYPES.Identifier ? callee.property.name : 'method'}`;
-         missingTimeout = true;
+         missingTimeout = !superagentChainHasTimeout(node, parentMap);
     }
 
     // Add finding logic...

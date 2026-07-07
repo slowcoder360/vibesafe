@@ -45,9 +45,11 @@ function cleanNextJsRouteSegment(relativeFilePath: string, basePath: string): { 
     // Corrected regex to only target parenthesized groups at the end.
     fullRoutePath = fullRoutePath.replace(/\/\(([^/]+?)\)$/, ''); 
 
-    // Ensure it starts with a slash if not already (basePath might sometimes be just 'api/' if passed incorrectly)
-    // And remove any trailing slash from the composed path
-    const finalFullRoute = ('/' + basePath.replace(/^\/|\/$/g, '') + '/' + fullRoutePath.replace(/^\//, '')).replace(/\/$/, '').replace(/\/\/\//g, '/') || '/';
+    // Public URL prefix is /api/... — strip Next.js filesystem segments (pages/, app/)
+    const routePrefix = basePath.replace(/^(pages|app)\/api\/?/, 'api').replace(/\/$/, '');
+    const finalFullRoute = ('/' + routePrefix + '/' + fullRoutePath.replace(/^\//, ''))
+        .replace(/\/+/g, '/')
+        .replace(/\/$/, '') || '/';
     
     // Now, determine the keyword part for matching against sensitive keywords
     // Remove (group) segments for keyword matching, e.g. (dashboard)/settings -> settings

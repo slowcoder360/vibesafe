@@ -27,4 +27,18 @@ describe('endpoints scanner', () => {
 
     expect(adminFindings.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('resolves Next.js pages/api routes to /api/... not /pages/api/...', () => {
+    const rootDir = path.join(__dirname, '../../test-data/nextjs-endpoint-tests');
+    const file = path.join(rootDir, 'pages/api/admin.ts');
+    const content = fs.readFileSync(file, 'utf-8');
+    const nextDetectedTech = { ...detectedTech, isNextJs: true };
+
+    const findings = scanForExposedEndpoints(rootDir, file, content, nextDetectedTech);
+    const adminFindings = findings.filter((f) => f.path.includes('admin'));
+
+    expect(adminFindings.length).toBeGreaterThanOrEqual(1);
+    expect(adminFindings.some((f) => f.path === '/api/admin')).toBe(true);
+    expect(adminFindings.some((f) => f.path.startsWith('/pages/api'))).toBe(false);
+  });
 });

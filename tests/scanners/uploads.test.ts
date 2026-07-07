@@ -13,4 +13,16 @@ describe('uploads scanner', () => {
 
     expect(missingLimits.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('detects fileUpload() from express-fileupload import without limits', () => {
+    const file = path.join(__dirname, '../../test-data/express-fileupload-test.js');
+    const content = fs.readFileSync(file, 'utf-8');
+
+    const findings = scanForUnvalidatedUploads(file, content, true);
+    const unrestricted = findings.filter(
+      (f) => f.type === 'Potentially Unrestricted Upload Library Usage',
+    );
+
+    expect(unrestricted.length).toBeGreaterThanOrEqual(1);
+  });
 });

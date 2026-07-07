@@ -27,7 +27,22 @@ const ROUTE_DEFINITION_REGEX = /(\.get|\.post|\.put|\.delete|\.patch|\.all|\.use
 // Regex for conventional API directories (Next.js, etc.) - case insensitive
 const CONVENTIONAL_API_DIR_REGEX = /[\/](pages[\/]api|app[\/]api)[\/]/i;
 
-// Removed RATE_LIMIT_IMPORT_REGEX as we now check package.json
+/**
+ * Detects rate-limit package imports/requires in source (not only package.json).
+ */
+function detectRateLimitImportInSource(content: string): boolean {
+    for (const pkg of KNOWN_RATE_LIMIT_PACKAGES) {
+        const escaped = pkg.replace('/', '\\/');
+        const importRegex = new RegExp(
+            `require\\(['"]${escaped}['"]\\)|from\\s+['"]${escaped}['"]`,
+            'i',
+        );
+        if (importRegex.test(content)) {
+            return true;
+        }
+    }
+    return false;
+}
 
 /**
  * Checks if known rate-limiting packages are present and if any API routes likely exist.
@@ -53,25 +68,30 @@ export function checkRateLimitHeuristic(dependencies: DependencyInfo[], filesToS
         return []; 
     }
 
-    // No known package found, now check if any routes exist in the codebase
+    // No known package in dependencies; check source imports and route definitions
     let routesExist = false;
     for (const filePath of filesToScan) {
-        // Check 1: Conventional API directory structure (e.g., Next.js)
         if (CONVENTIONAL_API_DIR_REGEX.test(filePath)) {
             routesExist = true;
-            break; // Found routes via directory structure
         }
 
-        // Check 2: Regex for common route definitions in file content
         try {
             const content = fs.readFileSync(filePath, 'utf-8');
-            ROUTE_DEFINITION_REGEX.lastIndex = 0; // Reset regex state
+
+            if (detectRateLimitImportInSource(content)) {
+                return [];
+            }
+
+            ROUTE_DEFINITION_REGEX.lastIndex = 0;
             if (ROUTE_DEFINITION_REGEX.test(content)) {
                 routesExist = true;
-                break; // Found routes via content regex
             }
         } catch (error: any) {
             // Ignore read errors
+        }
+
+        if (routesExist) {
+            break;
         }
     }
 

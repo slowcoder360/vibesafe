@@ -53,4 +53,20 @@ describe('rateLimiting scanner', () => {
 
     expect(findings).toHaveLength(0);
   });
+
+  it('returns no advisory when express-rate-limit is imported in source but not in package.json', () => {
+    const presentFile = path.join(__dirname, '../../test-data/rate-limit-present.js');
+    const dependencies: DependencyInfo[] = [
+      {
+        name: 'express',
+        version: '4.18.0',
+        packageManager: 'npm',
+        sourceFile: 'package.json',
+      },
+    ];
+
+    const findings = checkRateLimitHeuristic(dependencies, [presentFile], detectedTech);
+
+    expect(findings).toHaveLength(0);
+  });
 });

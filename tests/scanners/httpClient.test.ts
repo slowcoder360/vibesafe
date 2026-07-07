@@ -13,4 +13,16 @@ describe('httpClient scanner', () => {
 
     expect(missingTimeout.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('does not flag superagent calls with chained .timeout() in http-client-safe.js', () => {
+    const file = path.join(__dirname, '../../test-data/http-client-safe.js');
+    const content = fs.readFileSync(file, 'utf-8');
+
+    const findings = scanForHttpClientIssues(file, content, true);
+    const superagentMissingTimeout = findings.filter(
+      (f) => f.library === 'superagent' && f.type === 'Potential Missing Timeout',
+    );
+
+    expect(superagentMissingTimeout).toHaveLength(0);
+  });
 });

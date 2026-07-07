@@ -28,7 +28,8 @@ const FORMIDABLE_OPTIONS_VAR_REGEX = /const\s+(\w+)\s*=\s*\{\s*.*?maxFileSize\s*
 const FORMIDABLE_MAXFILESIZE_REGEX = /\bmaxFileSize\s*:/;
 
 // --- Express-FileUpload Specific Patterns ---
-const EXPRESS_FILEUPLOAD_INIT_REGEX = /expressUpload\(.*?\)/g; // Basic usage
+// Common import alias: const fileUpload = require('express-fileupload'); app.use(fileUpload());
+const EXPRESS_FILEUPLOAD_INIT_REGEX = /(?:expressUpload|fileUpload)\((.*?)\)/g;
 const EXPRESS_FILEUPLOAD_LIMITS_REGEX = /\blimits\s*:/; // Check for limits option
 
 // --- Generic Upload Patterns ---
