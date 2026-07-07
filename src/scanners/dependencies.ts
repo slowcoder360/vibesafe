@@ -138,6 +138,77 @@ function scoreToSeverity(score: number): FindingSeverity {
     return 'None'; // Should not happen if thresholds cover 0
 }
 
+const SEVERITY_RANK: Record<FindingSeverity, number> = {
+    None: 0,
+    Info: 1,
+    Low: 2,
+    Medium: 3,
+    High: 4,
+    Critical: 5,
+};
+
+function higherSeverity(a: FindingSeverity, b: FindingSeverity): FindingSeverity {
+    return SEVERITY_RANK[a] >= SEVERITY_RANK[b] ? a : b;
+}
+
+/**
+ * Maps OSV/GitHub advisory severity labels (e.g. database_specific.severity) to FindingSeverity.
+ */
+function mapOsvSeverityLabel(label: string): FindingSeverity | null {
+    switch (label.toUpperCase()) {
+        case 'CRITICAL':
+            return 'Critical';
+        case 'HIGH':
+            return 'High';
+        case 'MODERATE':
+        case 'MEDIUM':
+            return 'Medium';
+        case 'LOW':
+            return 'Low';
+        default:
+            return null;
+    }
+}
+
+/**
+ * Reads ecosystem severity from an OSV vuln when CVSS v3 is absent.
+ */
+function parseOsvEcosystemSeverity(vuln: OSVulnerability): FindingSeverity | null {
+    const raw = vuln.database_specific?.severity;
+    if (typeof raw !== 'string') {
+        return null;
+    }
+    return mapOsvSeverityLabel(raw);
+}
+
+/**
+ * Computes max severity across vulns: CVSS v3 first, then OSV ecosystem severity,
+ * else Medium when vulns exist but no score is available (batch API often omits CVSS).
+ */
+function computeMaxSeverityFromVulns(vulns: OSVulnerability[]): FindingSeverity {
+    let maxCvss = 0;
+    let maxOsvSeverity: FindingSeverity | null = null;
+
+    for (const vuln of vulns) {
+        maxCvss = Math.max(maxCvss, getHighestCvssScore(vuln.severity));
+        const osvSeverity = parseOsvEcosystemSeverity(vuln);
+        if (osvSeverity) {
+            maxOsvSeverity = maxOsvSeverity
+                ? higherSeverity(maxOsvSeverity, osvSeverity)
+                : osvSeverity;
+        }
+    }
+
+    if (maxCvss > 0) {
+        return scoreToSeverity(maxCvss);
+    }
+    if (maxOsvSeverity) {
+        return maxOsvSeverity;
+    }
+    // OSV batch responses may omit CVSS; still surface known vulns at Medium minimum.
+    return 'Medium';
+}
+
 // Define the return type for the detection function
 type DetectedFilesMap = { [key in PackageManager]?: { manifest?: string, lock?: string } };
 
@@ -339,12 +410,7 @@ export async function lookupCves(dependencies: DependencyInfo[]): Promise<Depend
             if (targetFinding) {
                 if (result && result.vulns && result.vulns.length > 0) {
                     targetFinding.vulnerabilities = result.vulns;
-                    // Calculate max severity for this dependency
-                    let maxCvss = 0;
-                    for (const vuln of result.vulns) {
-                        maxCvss = Math.max(maxCvss, getHighestCvssScore(vuln.severity));
-                    }
-                    targetFinding.maxSeverity = scoreToSeverity(maxCvss);
+                    targetFinding.maxSeverity = computeMaxSeverityFromVulns(result.vulns);
                 } else {
                     targetFinding.maxSeverity = 'None'; // Explicitly set to None if no vulns found
                 }
