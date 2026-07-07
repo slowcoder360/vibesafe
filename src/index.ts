@@ -53,6 +53,7 @@ program.command('scan')
   .option('-o, --output <file>', 'Specify JSON output file path (e.g., report.json)')
   .option('-r, --report [file]', 'Specify Markdown report file path (defaults to VIBESAFE-REPORT.md)')
   .option('--high-only', 'Only report high severity issues')
+  .option('--ai-suggestions', 'Include AI-powered fix suggestions in the Markdown report (requires OpenAI API key or compatible LLM host)')
   .option('-m, --model <model>', 'Specify OpenAI model to use for suggestions. If not specified the program will use gpt-4.1-nano', 'gpt-4.1-nano')
   .option('-u, --url <url>', 'Use the specified url (e.g. http://localhost:11434 for ollama or https://api.openai.com for ChatGPT) for ai suggestions. If not specified the program will call OpenAI API', 'https://api.openai.com')
   .action(async (directory, options) => {
@@ -312,7 +313,7 @@ program.command('scan')
             infoSecretFindings: infoSecretFindings
         };
         try {
-            const markdownContent = await generateMarkdownReport(reportData, options.url, options.model);
+            const markdownContent = await generateMarkdownReport(reportData, options.url, options.model, !!options.aiSuggestions);
             fs.writeFileSync(reportPath, markdownContent);
             console.log(chalk.green(`\nMarkdown report generated successfully at ${reportPath}`));
         } catch (error: any) {

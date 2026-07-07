@@ -40,7 +40,7 @@ VibeSafe helps developers quickly check their projects for common security issue
   Console, JSON (`--output`), or Markdown reports (`--report`).
 
 - 🧠 **AI-Powered Fix Suggestions (Optional)**  
-  Add an OpenAI API key for smart recommendations in Markdown reports.
+  Pass `--ai-suggestions` with `--report` and an OpenAI API key for smart recommendations in Markdown reports.
 
 - 🎯 **Focus on Critical Issues**  
   Use `--high-only` to trim noise.
@@ -79,7 +79,7 @@ vibesafe scan -o scan-results.json
 
 **Generate Markdown Report:**
 
-To generate a Markdown report, use the `-r` or `--report` flag. You can optionally provide a filename. If no filename is given, it defaults to `VIBESAFE-REPORT.md` in the scanned directory.
+To generate a deterministic Markdown report (no LLM calls), use the `-r` or `--report` flag. You can optionally provide a filename. If no filename is given, it defaults to `VIBESAFE-REPORT.md` in the scanned directory.
 
 *With a specific filename:*
 ```bash
@@ -93,27 +93,27 @@ vibesafe scan -r
 vibesafe scan --report 
 ```
 
-*Using a local llm host for report (the llm host must support OpenAI API)
-```bash
- # example with ollama at local host with default ollama port
- vibesafe scan --url http://127.0.0.1:11434 --model gemma3:27b-it-q8_0
-```
+**Generate AI Suggestions in Report (Opt-in, Requires API Key):**
 
-if --url flag is not specified the report will be done by OpenAI (you will need an OpenAI API Key, see below)
-
-**Generate AI Report from OpenAI (Requires API Key):**
-
-To generate fix suggestions in the Markdown report, you need an OpenAI API key.
+AI fix suggestions are **not** included by default. Pass `--ai-suggestions` along with `--report` to enable them.
 
 1.  Create a `.env` file in the root of the directory where you run `vibesafe` (or in the project root if running locally during development).
 2.  Add your key to the `.env` file:
     ```
     OPENAI_API_KEY=sk-YourActualOpenAIKeyHere
     ```
-3.  Run the scan with the report flag:
+3.  Run the scan with both flags:
 ```bash
-vibesafe scan -r ai-report.md
+vibesafe scan -r ai-report.md --ai-suggestions
 ```
+
+*Using a local LLM host (must support OpenAI API):*
+```bash
+# example with ollama at local host with default ollama port
+vibesafe scan -r report.md --ai-suggestions --url http://127.0.0.1:11434 --model gemma3:27b-it-q8_0
+```
+
+If `--url` is not specified, AI suggestions use the OpenAI API.
 
 **Show Only High/Critical Issues:**
 

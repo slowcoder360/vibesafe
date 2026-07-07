@@ -7,7 +7,6 @@ import { RateLimitFinding } from '../scanners/rateLimiting';
 import { LoggingFinding } from '../scanners/logging';
 import { HttpClientFinding } from '../scanners/httpClient';
 import { GitignoreWarning } from '../utils/fileTraversal';
-import { generateAISuggestions } from './aiSuggestions';
 import path from 'path';
 import ora from 'ora';
 import chalk from 'chalk';
@@ -53,7 +52,7 @@ function getSeverityInfo(severity: FindingSeverity | SecretFinding['severity'] |
  * @param reportData The aggregated findings.
  * @returns A Markdown formatted string.
  */
-export async function generateMarkdownReport(reportData: ReportData, url: string, model: string  = 'gpt-4.1-nano'): Promise<string> {
+export async function generateMarkdownReport(reportData: ReportData, url: string, model: string  = 'gpt-4.1-nano', aiSuggestions: boolean = false): Promise<string> {
     let markdown = `# VibeSafe Security Scan Report ✨🛡️\n\n`;
     markdown += `Generated: ${new Date().toISOString()}\n\n`;
 
@@ -198,19 +197,22 @@ export async function generateMarkdownReport(reportData: ReportData, url: string
         }
     }
 
-    // --- AI Suggestions ---
-    let apiKey = process.env.OPENAI_API_KEY;
-    if (! apiKey){ // ollama dont need an API key but this field can't be none
-        apiKey = 'YOUR_API_KEY_PLACEHOLDER';
-    }
-    const spinner = ora(`Generating AI suggestions (using API from ${url}/v1 with model: ${model})... `).start();
-    try {
-        const aiSuggestions = await generateAISuggestions(reportData, {baseURL: url + '/v1', apiKey: apiKey}, model);
-        spinner.succeed('AI suggestions generated.');
-        markdown += aiSuggestions; // Append the suggestions section
-    } catch (error: any) {
-        spinner.fail('AI suggestion generation failed.');
-        markdown += `\n## AI Suggestions\n\n*Error generating suggestions: ${error.message}*\n`; // Append error message
+    // --- AI Suggestions (opt-in via --ai-suggestions) ---
+    if (aiSuggestions) {
+        const { generateAISuggestions } = await import('./aiSuggestions');
+        let apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) { // ollama dont need an API key but this field can't be none
+            apiKey = 'YOUR_API_KEY_PLACEHOLDER';
+        }
+        const spinner = ora(`Generating AI suggestions (using API from ${url}/v1 with model: ${model})... `).start();
+        try {
+            const suggestions = await generateAISuggestions(reportData, { baseURL: url + '/v1', apiKey }, model);
+            spinner.succeed('AI suggestions generated.');
+            markdown += suggestions;
+        } catch (error: any) {
+            spinner.fail('AI suggestion generation failed.');
+            markdown += `\n## AI Suggestions\n\n*Error generating suggestions: ${error.message}*\n`;
+        }
     }
 
     return markdown;
