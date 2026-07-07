@@ -40,12 +40,16 @@ function colorSeverity(severity: FindingSeverity | SecretFinding['severity'] | U
     }
 }
 
+const { version: pkgVersion } = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8')
+) as { version: string };
+
 const program = new Command();
 
 program
   .name('vibesafe')
   .description('A CLI tool to scan your codebase for security vibes.')
-  .version('0.0.1');
+  .version(pkgVersion);
 
 program.command('scan')
   .description('Scan a directory for potential security issues.')

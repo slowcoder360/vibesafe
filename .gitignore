@@ -19,6 +19,10 @@ build/
 *.md
 !README.md
 !CONTRIBUTING.md
+!plan/**
+!agent-control/**
+!slices/README.md
+!slices/**/SPEC.md
 
 # Python
 __pycache__/
